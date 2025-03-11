@@ -12,6 +12,7 @@ name = "adversarial-evolution"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
+    { name = "ale-py" },
     { name = "deap" },
     { name = "gymnasium", extra = ["box2d"] },
     { name = "leap-ec" },
@@ -22,12 +23,40 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "ale-py", specifier = ">=0.10.2" },
     { name = "deap", specifier = ">=1.4.2" },
     { name = "gymnasium", extras = ["box2d"], specifier = ">=1.1.1" },
     { name = "leap-ec", specifier = ">=0.8.1" },
     { name = "pre-commit", specifier = ">=4.1.0" },
     { name = "pygad", specifier = ">=3.4.0" },
     { name = "swig", specifier = ">=4.3.0" },
+]
+
+[[package]]
+name = "ale-py"
+version = "0.10.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+    { name = "typing-extensions", marker = "python_full_version < '3.11'" },
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/16/7d/f449dd8086e6559d90ff365bc80ef44820415bff08596455714984050731/ale_py-0.10.2-cp310-cp310-macosx_10_15_x86_64.whl", hash = "sha256:9659a0926f2e25a776fc9daab79e5f398096466f5a079caef370369d38309429", size = 1677970 },
+    { url = "https://files.pythonhosted.org/packages/25/23/63ff036acf5cb52f9c4068b02ada44d054114711c3d79e181b03518f1430/ale_py-0.10.2-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:ef90b4416807b35a3a701548a8e5c1ef54bb4728665c4a74275de64ef41ff11f", size = 1583146 },
+    { url = "https://files.pythonhosted.org/packages/1e/74/a989e287b2a3822f636e2bd80beb3605bc026fa50b05b8969d4c4a0f0e7e/ale_py-0.10.2-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:cba2a904ab80670b9db8965d95dad3d978b4a133595c04b1be42f86c0371fdde", size = 2229037 },
+    { url = "https://files.pythonhosted.org/packages/e2/e2/00edaa58d86ad665e162214c06d47b0a671ae6f3b40c56f408e359a5dd18/ale_py-0.10.2-cp310-cp310-win_amd64.whl", hash = "sha256:13764f641117c5c4d629272aa303ef5ad21a75870318245d2e39d5fb5afac73b", size = 1487344 },
+    { url = "https://files.pythonhosted.org/packages/a0/e9/9d9654315b173a8a2e1e0075dd374a1b1a4f4a8c8ff9f92a8da8effe6f3b/ale_py-0.10.2-cp311-cp311-macosx_10_15_x86_64.whl", hash = "sha256:389440a842678041e4fccca9be3f4da3426e2eac64c7c53c2e7a7de9e73cbdc9", size = 1679239 },
+    { url = "https://files.pythonhosted.org/packages/82/ad/1c346b6866df80bd93532817332221aef581c6adf3525ff8dc2cb5043911/ale_py-0.10.2-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:4cbd01bce19c8fcfa109537ee461932e5b3bc3bf2d832072e2670ca6cb5912a1", size = 1584492 },
+    { url = "https://files.pythonhosted.org/packages/64/ad/248269043741db244fd7bd6402b7f9efcf0409228e29b7978e64a2300899/ale_py-0.10.2-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:3b4f7f03e9ff18cc545f691105fb32a3ac5381543a97237ef8d2bdb6a38b7b4a", size = 2229943 },
+    { url = "https://files.pythonhosted.org/packages/19/5c/a43399dafe40e4e3db45e95c08f1ea94be03565cf02e1cee00338fa2ab6d/ale_py-0.10.2-cp311-cp311-win_amd64.whl", hash = "sha256:b1fab6fdf3b8f2e958427f1aecfce6aa29b9acb634882c365dbb953f1f93e4d3", size = 1488881 },
+    { url = "https://files.pythonhosted.org/packages/60/09/c0f24b5ac526b484aff78dc2e84fa398cc7040d54f196325238a8cfe6ff5/ale_py-0.10.2-cp312-cp312-macosx_10_15_x86_64.whl", hash = "sha256:fe65028081b233572c143b58d5e3427c9a0f58dbee8367b2c9c658a1b9dae5e0", size = 1679789 },
+    { url = "https://files.pythonhosted.org/packages/3b/ab/a259e1e9a451f0f27fa45cc5f4e2e1e0b5ba5cafcc09886ab4f5da8095a6/ale_py-0.10.2-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:791f68cb665d8ddd1c3afa2eb0ce47a9441c8af2fad03abfd8f9bc0d7772650d", size = 1584132 },
+    { url = "https://files.pythonhosted.org/packages/c2/88/75e7f1b86fe0fd502a6db4727bff18019b83e81c115d6d67f5f0e4689e22/ale_py-0.10.2-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:744f623829d5bd8b105aac428249c27472fdf53f3822a3ceadea3c8cab27b161", size = 2230853 },
+    { url = "https://files.pythonhosted.org/packages/79/24/828c102ce115289fc30ce6bb5f903835c8dd59c3416c88a6971bed79641e/ale_py-0.10.2-cp312-cp312-win_amd64.whl", hash = "sha256:d5312b5a2be4867ea25152b68896651a8ed514ffbf221b1c7d3f6141d9009087", size = 1489234 },
+    { url = "https://files.pythonhosted.org/packages/65/1b/57afb76eb38203b4ceb7bb2ff23091a07eba64754e8c3c883c7747991645/ale_py-0.10.2-cp313-cp313-macosx_10_15_x86_64.whl", hash = "sha256:4f1af4da243bd369cd74296b32fd952b27f72e5f55fcd090caf06b93e15608e3", size = 1679825 },
+    { url = "https://files.pythonhosted.org/packages/f8/cf/b7f4c29d69ec53a389e0bbe7d9a3d9568ee4392603965374feb806b07e11/ale_py-0.10.2-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:7649911c311649b2dcfa4046d549b3f5cb5d8fc354fee01a73bd7762d97572a0", size = 1584148 },
+    { url = "https://files.pythonhosted.org/packages/b2/a4/22229b10b4b62c0204a22d5c1b67d89573d84d11aee3556d4e580c2cdfc8/ale_py-0.10.2-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:e68297eda2681f8b5591c251a617c19c20a1e1af6a7d06ca1e32e6cca7fcede5", size = 2230651 },
+    { url = "https://files.pythonhosted.org/packages/06/83/9ab982c576fb31d236739bbfc37f0b4720de80dabda47021263b4f614057/ale_py-0.10.2-cp313-cp313-win_amd64.whl", hash = "sha256:6e057557bbc13bf6eff2797a09070755d69d6fb9e54733e11a5e612fdf60117f", size = 1489359 },
 ]
 
 [[package]]

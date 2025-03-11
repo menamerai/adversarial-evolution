@@ -5,6 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
+    "ale-py>=0.10.2",
     "deap>=1.4.2",
     "gymnasium[box2d]>=1.1.1",
     "leap-ec>=0.8.1",
