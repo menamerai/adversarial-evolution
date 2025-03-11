@@ -1,0 +1,13 @@
+[project]
+name = "adversarial-evolution"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "deap>=1.4.2",
+    "gym>=0.26.2",
+    "leap-ec>=0.8.1",
+    "pre-commit>=4.1.0",
+    "pygad>=3.4.0",
+]
