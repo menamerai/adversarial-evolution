@@ -19,3 +19,7 @@ In Holisitc Evolution (HE), we allow for extinction by applying the selection pr
 # Different Architecture
 
 Either we allow for the genome to encode the NN architecture, or manually just pick two different architecures for population A and B. This would mean that they can end up with different genome structure, which is fine, but out fitness function need to accomodate that. With this, we can extract what network architecture would be better for our purpose.
+
+# Final Tournament
+
+In the end, we can just throw a bunch of our saved genomes from different experiments into a big tournament and see what happens :)
