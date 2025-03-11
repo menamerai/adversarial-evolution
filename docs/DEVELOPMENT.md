@@ -19,7 +19,7 @@ I also have cu121 for older GPUs configured. Just replace the extra term. Then, 
 source .venv/bin/activate # Linux
 ```
 
-If you're in VSCode, make sure to select this .venv Python environment as the workspace Python environment when prompted. I also use pre-commit in the development workflow. Once everythint is installed, you should run
+If you're in VSCode, make sure to select this .venv Python environment as the workspace Python environment when prompted. I also use pre-commit in the development workflow. Once everything is installed, you should run
 
 ```
 uv run pre-commit install # omit uv run if you're already in the virtual environment
