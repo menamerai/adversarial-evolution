@@ -13,7 +13,7 @@ def main():
         observation, reward, terminated, truncated, info = env.step(action)
 
         episode_over = terminated or truncated
-
+        # test changes
     env.close()
 
 
