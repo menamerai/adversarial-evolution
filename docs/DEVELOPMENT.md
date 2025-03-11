@@ -1,16 +1,25 @@
 # Environment Setup
 
-I use `uv` for dependency management. If you're curious, read the docs [here](https://docs.astral.sh/uv/). If you want to follow the exact expected setup steps, install `uv`, then execute
+I use `uv` for dependency management. If you're curious, read the docs [here](https://docs.astral.sh/uv/). If you want to follow the exact expected setup steps, install `uv`. Depending on what platform you are on, the sync process might be different. For CPU-based workflows (MacOS, I see you), you should run:
 
 ```
-uv sync
+uv sync --extra cpu
+```
+
+For CUDA-enabled devices, run
+
+```
+uv sync --extra cu124
+```
+
+I also have cu121 for older GPUs configured. Just replace the extra term. Then, activate the environment:
+
+```
 .venv/Scripts/activate # Windows
 source .venv/bin/activate # Linux
 ```
 
-to initialize, install then activate the virtual environment. If you're in VSCode, make sure to select this .venv Python environment as the workspace Python environment when prompted.
-
-I also use pre-commit in the development workflow. Once everythint is installed, you should run
+If you're in VSCode, make sure to select this .venv Python environment as the workspace Python environment when prompted. I also use pre-commit in the development workflow. Once everythint is installed, you should run
 
 ```
 uv run pre-commit install # omit uv run if you're already in the virtual environment
