@@ -1,21 +1,11 @@
-import gymnasium as gym
+from pettingzoo.atari import boxing_v2
 
+env = boxing_v2.parallel_env(render_mode="human")
+observations, infos = env.reset()
 
-def main():
-    env = gym.make("LunarLander-v3", render_mode="human")
-    observation, info = env.reset()
+while env.agents:
+    # this is where you would insert your policy
+    actions = {agent: env.action_space(agent).sample() for agent in env.agents}
 
-    episode_over = False
-    while not episode_over:
-        action = (
-            env.action_space.sample()
-        )  # agent policy that uses the observation and info
-        observation, reward, terminated, truncated, info = env.step(action)
-
-        episode_over = terminated or truncated
-        # test changes
-    env.close()
-
-
-if __name__ == "__main__":
-    main()
+    observations, rewards, terminations, truncations, infos = env.step(actions)
+env.close()
