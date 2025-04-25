@@ -12,6 +12,10 @@ from pettingzoo.utils.wrappers import BaseParallelWrapper
 from loguru import logger
 import time
 import matplotlib.pyplot as plt
+import itertools
+import multiprocessing
+from multiprocessing import cpu_count
+from functools import partial
 
 # Set up loguru logger
 logger.remove()  # Remove default handler
@@ -233,6 +237,33 @@ def simulate_match_net(
     return total_a, total_b
 
 
+# Parallel event worker for coevolution
+def _eval_event(event, configA, configB, blank_side, img_size, penalty_reward, hit_reward):
+    """
+    Worker to evaluate a single coevolution event:
+    event = ("A"/"B", gid, genome, opp_gid, opp_genome)
+    Returns (label, gid, opp_gid, fitA, fitB).
+    """
+    label, gid, genome, opp_gid, opp_genome = event
+    # Silence detailed logging for performance
+    logger_disabled = logger.level("TRACE")[0]  # store current level index
+    logger.disable("all")
+    try:
+        if label == "A":
+            netA = neat.nn.FeedForwardNetwork.create(genome, configA)
+            netB = neat.nn.FeedForwardNetwork.create(opp_genome, configB)
+            fitA, fitB = simulate_match_net(
+                netA, netB, blank_side, img_size, penalty_reward, hit_reward)
+        else:
+            netA = neat.nn.FeedForwardNetwork.create(opp_genome, configA)
+            netB = neat.nn.FeedForwardNetwork.create(genome, configB)
+            fitA, fitB = simulate_match_net(
+                netA, netB, blank_side, img_size, penalty_reward, hit_reward)
+    finally:
+        logger.enable("all")
+    return label, gid, opp_gid, fitA, fitB
+
+
 # -----------------------
 # Coevolution with NEAT
 # -----------------------
@@ -247,6 +278,11 @@ def coevolve(
     img_size: tuple,
     results_dir: str,
 ):
+    import os
+    # ensure config_file points to the script’s directory
+    if not os.path.isabs(config_file):
+        config_file = os.path.join(os.path.dirname(__file__), config_file)
+        
     logger.info(f"Starting coevolution with populations of size {pop_size}")
     logger.info(f"Generations: {generations}, Mutation rate: {mutation_rate}")
     logger.info(f"Image size: {img_size}, Blank side: {blank_side}")
@@ -317,67 +353,51 @@ def coevolve(
         for _, g in itemsA + itemsB:
             g.fitness = 0.0
 
-        # Build one shuffled pool of “events”: A‐genome or B‐genome steps
-        pool = [("A", gid, g) for gid, g in itemsA] + [
-            ("B", gid, g) for gid, g in itemsB
-        ]
-        random.shuffle(pool)
+        # Prepare interleaved events list
+        events = []
+        for gid, genome in itemsA:
+            opp_gid, opp_genome = random.choice(itemsB)
+            events.append(("A", gid, genome, opp_gid, opp_genome))
+        for gid, genome in itemsB:
+            opp_gid, opp_genome = random.choice(itemsA)
+            events.append(("B", gid, genome, opp_gid, opp_genome))
 
-        logger.info(f"Interleaved evaluation pool size: {len(pool)}")
-        # For each entry, pick a random opponent from the other species
-        for idx, (label, gid, genome) in enumerate(pool, start=1):
-            logger.trace(
-                f"[Gen {gen}] Event {idx}/{len(pool)} → label={label}, genome_id={gid}"
+        # Shuffle events to randomize workload
+        random.shuffle(events)
+
+        logger.info(f"Interleaved evaluation event count: {len(events)}")
+
+        # Parallel evaluation of events
+        with multiprocessing.Pool(cpu_count()) as pool:
+            func = partial(
+                _eval_event,
+                configA=configA,
+                configB=configB,
+                blank_side=blank_side,
+                img_size=img_size,
+                penalty_reward=penalty_reward,
+                hit_reward=hit_reward,
             )
-            if label == "A" and blank_side != "a":
-                logger.debug(
-                    f"[Gen {gen}][A] selecting opponent from B (size={len(itemsB)})"
-                )
-                opp_gid, opp_genome = random.choice(itemsB)
-                logger.trace(f"[Gen {gen}][A] match-up: A#{gid} vs B#{opp_gid}")
-                netA = neat.nn.FeedForwardNetwork.create(genome, configA)
-                netB = neat.nn.FeedForwardNetwork.create(opp_genome, configB)
-                fitA, fitB = simulate_match_net(
-                    netA, netB, blank_side, img_size, penalty_reward, hit_reward
-                )
-                logger.trace(
-                    f"[Gen {gen}][A] result: fitnessA={fitA:.2f}, fitnessB={fitB:.2f}"
-                )
-                genome.fitness += float(fitA)
-                popB.population[opp_gid].fitness += float(fitB)
-                logger.info(
-                    f"[Gen {gen}] A#{gid} vs B#{opp_gid} - fitnessA: {fitA:.2f}, fitnessB: {fitB:.2f}"
-                )
-            elif label == "B" and blank_side != "b":
-                logger.debug(
-                    f"[Gen {gen}][B] selecting opponent from A (size={len(itemsA)})"
-                )
-                opp_gid, opp_genome = random.choice(itemsA)
-                logger.trace(f"[Gen {gen}][B] match-up: B#{gid} vs A#{opp_gid}")
-                netA = neat.nn.FeedForwardNetwork.create(opp_genome, configA)
-                netB = neat.nn.FeedForwardNetwork.create(genome, configB)
-                fitA, fitB = simulate_match_net(
-                    netA, netB, blank_side, img_size, penalty_reward, hit_reward
-                )
-                logger.trace(
-                    f"[Gen {gen}][B] result: fitnessB={fitB:.2f}, fitnessA={fitA:.2f}"
-                )
-                genome.fitness += float(fitB)
-                popA.population[opp_gid].fitness += float(fitA)
-                logger.info(
-                    f"[Gen {gen}] B#{gid} vs A#{opp_gid} - fitnessB: {fitB:.2f}, fitnessA: {fitA:.2f}"
-                )
-            # if blanked, we simply skip that evaluation
+            results = pool.map(func, events)
+
+        # Aggregate fitness assignments
+        for label, gid, opp_gid, fitA, fitB in results:
+            if label == "A":
+                popA.population[gid].fitness += fitA
+                popB.population[opp_gid].fitness += fitB
+            else:
+                popB.population[gid].fitness += fitB
+                popA.population[opp_gid].fitness += fitA
 
         # (Optional) Normalize fitness by number of matches each got:
-        matches_per = len([1 for lab, _, _ in pool if lab == "A" and blank_side != "a"])
+        matches_per = len([1 for lab, _, _, _, _ in events if lab == "A" and blank_side != "a"])
         if matches_per:
             logger.debug(
                 f"[Gen {gen}] normalizing A fitness over {matches_per} matches"
             )
             for _, g in itemsA:
                 g.fitness /= matches_per
-        matches_per = len([1 for lab, _, _ in pool if lab == "B" and blank_side != "b"])
+        matches_per = len([1 for lab, _, _, _, _ in events if lab == "B" and blank_side != "b"])
         if matches_per:
             logger.debug(
                 f"[Gen {gen}] normalizing B fitness over {matches_per} matches"
@@ -631,7 +651,7 @@ def plot_fitness_curves(
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Coevolutionary NEAT for Atari Boxing")
     parser.add_argument(
-        "--config", type=str, default="config.ini", help="Path to NEAT config file"
+        "--config", type=str, default="neat_config.ini", help="Path to NEAT config file"
     )
     parser.add_argument(
         "--pop_size", type=int, default=20, help="Population size for each species"
@@ -708,18 +728,40 @@ if __name__ == "__main__":
     logger.info("Boxing Evolution starting")
     logger.info(f"Arguments: {vars(args)}")
 
-    try:
-        coevolve(
-            config_file=args.config,
-            pop_size=args.pop_size,
-            generations=args.generations,
-            mutation_rate=args.mutation_rate,
-            blank_side=args.blank_side,
-            penalty_reward=args.penalty_reward,
-            hit_reward=args.hit_reward,
-            img_size=tuple(args.img_size),
-            results_dir=args.results,
-        )
-    except Exception as e:
-        logger.exception(f"Error during coevolution: {str(e)}")
-        raise
+    # -------------------
+    # Parameter Grid Search
+    # -------------------
+    grid = {
+        'pop_size': [10, 20, 40],
+        'mutation_rate': [0.9],
+        'penalty_reward': [None, 0],
+        'hit_reward': [None, 1],
+    }
+
+    # Run grid search
+    for pop, mut, pen, hit in itertools.product(
+            grid['pop_size'],
+            grid['mutation_rate'],
+            grid['penalty_reward'],
+            grid['hit_reward']
+        ):
+        run_dir = os.path.join(args.results,
+                               f"pop{pop}_mut{mut}_pen{pen}_hit{hit}")
+        os.makedirs(run_dir, exist_ok=True)
+        logger.info(f"Grid run: pop_size={pop}, mutation_rate={mut}, "
+                    f"penalty_reward={pen}, hit_reward={hit}")
+        try:
+            coevolve(
+                config_file=args.config,
+                pop_size=pop,
+                generations=args.generations,
+                mutation_rate=mut,
+                blank_side=args.blank_side,
+                penalty_reward=pen,
+                hit_reward=hit,
+                img_size=tuple(args.img_size),
+                results_dir=run_dir,
+            )
+        except Exception as e:
+            logger.exception(f"Error during coevolution: {str(e)}")
+            raise
