@@ -4,7 +4,7 @@ import pickle
 import neat
 import numpy as np
 import csv
-from main import simulate_match_net
+from interleaved_evolution import simulate_match_net
 from loguru import logger
 import multiprocessing
 from multiprocessing import cpu_count
