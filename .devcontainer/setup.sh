@@ -1,9 +1,5 @@
 #!/bin/bash
 
-# configure git
-git config --global user.name ${GIT_USERNAME}
-git config --global user.email ${GIT_EMAIL}
-
 # install dependencies
 sudo apt update
 sudo apt upgrade

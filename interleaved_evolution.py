@@ -816,10 +816,10 @@ if __name__ == "__main__":
     # Parameter Grid Search
     # -------------------
     grid = {
-        'pop_size': [20],
-        'mutation_rate': [0.9],
-        'penalty_reward': [0.0],
-        'hit_reward': [None],
+        'pop_size': [10, 20, 40],
+        'mutation_rate': [0.5, 0.7, 0.8, 0.9],
+        'penalty_reward': [None, 0.0, -0.5, 1.0],
+        'hit_reward': [None, -1.0],
     }
 
     # Run grid search
