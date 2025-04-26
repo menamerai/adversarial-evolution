@@ -273,6 +273,7 @@ def coevolve(
     generations: int,
     mutation_rate: float,
     blank_side: str,
+    unblank_gen: int,
     penalty_reward: float,
     hit_reward: float,
     img_size: tuple,
@@ -342,8 +343,85 @@ def coevolve(
     best_fitness_B = []
 
     # Interleaved coevolutionary loop
-    for gen in range(1, generations + 1):
+    for gen in range(1, generations+1):
         logger.info(f"=== Generation {gen}/{generations} (interleaved) ===")
+
+        # determine whether the original blank_side is still in effect
+        if unblank_gen is not None and gen >= unblank_gen:
+            if blank_side is not None:
+                logger.info(f"Gen {gen}: unblanking side '{blank_side}', both sides now act")
+            effective_blank = None
+        else:
+            effective_blank = blank_side
+
+        # decide if we’re still in single‑pop mode
+        effective_blank = None if (unblank_gen is not None and gen >= unblank_gen) else blank_side
+        single_mode = blank_side is not None and unblank_gen is not None and gen < unblank_gen
+        if single_mode:
+            # which side is active?
+            active = 'B' if blank_side == 'a' else 'A'
+            logger.info(f"Gen {gen}: single‑population evolution for {active} only")
+            # bind active/other pops & configs
+            if active == 'A':
+                pop_active, pop_other = popA, popB
+                cfg_active, _ = configA, configB
+                label = 'A'
+            else:
+                pop_active, pop_other = popB, popA
+                cfg_active, _ = configB, configA
+                label = 'B'
+            # zero fitness on active
+            items = list(pop_active.population.items())
+            for _, g in items:
+                g.fitness = 0.0
+            # build single‑side events
+            events = []
+            for gid, genome in items:
+                opp_gid, opp_genome = random.choice(list(pop_other.population.items()))
+                events.append((label, gid, genome, opp_gid, opp_genome))
+            random.shuffle(events)
+            # evaluate
+            with multiprocessing.Pool(cpu_count()) as pool:
+                func = partial(
+                    _eval_event,
+                    configA=configA,
+                    configB=configB,
+                    blank_side=effective_blank,
+                    img_size=img_size,
+                    penalty_reward=penalty_reward,
+                    hit_reward=hit_reward,
+                )
+                results = pool.map(func, events)
+            # assign & normalize fitness on active only
+            for lab, gid, _, fitA, fitB in results:
+                pop_active.population[gid].fitness += (fitA if lab == 'A' else fitB)
+            if events:
+                for _, g in items:
+                    g.fitness /= len(events)
+            # reproduce & speciate active only
+            pop_active.population = pop_active.reproduction.reproduce(
+                cfg_active, pop_active.species, cfg_active.pop_size, gen
+            )
+            pop_active.species.speciate(cfg_active, pop_active.population, gen)
+            # record stats: active gets real, inactive padded zero (filter out None)
+            gen_numbers.append(gen)
+            if active == 'A':
+                vals = [g.fitness for g in popA.population.values() if g.fitness is not None]
+                if vals:
+                    avg_fitness_A.append(sum(vals)/len(vals))
+                    best_fitness_A.append(max(vals))
+                else:
+                    avg_fitness_A.append(0); best_fitness_A.append(0)
+                avg_fitness_B.append(0); best_fitness_B.append(0)
+            else:
+                avg_fitness_A.append(0); best_fitness_A.append(0)
+                vals = [g.fitness for g in popB.population.values() if g.fitness is not None]
+                if vals:
+                    avg_fitness_B.append(sum(vals)/len(vals))
+                    best_fitness_B.append(max(vals))
+                else:
+                    avg_fitness_B.append(0); best_fitness_B.append(0)
+            continue
 
         # Grab current genomes
         itemsA = list(popA.population.items())  # [(gid, genome), …]
@@ -365,7 +443,7 @@ def coevolve(
         # Shuffle events to randomize workload
         random.shuffle(events)
 
-        logger.info(f"Interleaved evaluation event count: {len(events)}")
+        logger.info(f"Interleaved evaluation event count: {len(events)} (blank_side={effective_blank})")
 
         # Parallel evaluation of events
         with multiprocessing.Pool(cpu_count()) as pool:
@@ -373,7 +451,7 @@ def coevolve(
                 _eval_event,
                 configA=configA,
                 configB=configB,
-                blank_side=blank_side,
+                blank_side=effective_blank,
                 img_size=img_size,
                 penalty_reward=penalty_reward,
                 hit_reward=hit_reward,
@@ -390,17 +468,17 @@ def coevolve(
                 popA.population[opp_gid].fitness += fitA
 
         # (Optional) Normalize fitness by number of matches each got:
-        matches_per = len([1 for lab, _, _, _, _ in events if lab == "A" and blank_side != "a"])
+        matches_per = len([1 for lab, *_ in events if lab == "A" and effective_blank != "a"])
         if matches_per:
             logger.debug(
-                f"[Gen {gen}] normalizing A fitness over {matches_per} matches"
+                f"[Gen {gen}] normalizing A fitness over {matches_per} matches (blanked? {effective_blank=='a'})"
             )
             for _, g in itemsA:
                 g.fitness /= matches_per
-        matches_per = len([1 for lab, _, _, _, _ in events if lab == "B" and blank_side != "b"])
+        matches_per = len([1 for lab, *_ in events if lab == "B" and effective_blank != "b"])
         if matches_per:
             logger.debug(
-                f"[Gen {gen}] normalizing B fitness over {matches_per} matches"
+                f"[Gen {gen}] normalizing B fitness over {matches_per} matches (blanked? {effective_blank=='b'})"
             )
             for _, g in itemsB:
                 g.fitness /= matches_per
@@ -434,7 +512,7 @@ def coevolve(
             # Calculate and store statistics for plotting
             gen_numbers.append(gen)
 
-            if valid_genomesA and blank_side != "a":
+            if valid_genomesA and effective_blank != "a":
                 bestA = max(valid_genomesA, key=lambda g: g.fitness)
                 avg_fit_A = sum(g.fitness for g in valid_genomesA) / len(valid_genomesA)
                 best_fitness_A.append(bestA.fitness)
@@ -454,7 +532,7 @@ def coevolve(
                 best_fitness_A.append(0)
                 avg_fitness_A.append(0)
 
-            if valid_genomesB and blank_side != "b":
+            if valid_genomesB and effective_blank != "b":
                 bestB = max(valid_genomesB, key=lambda g: g.fitness)
                 avg_fit_B = sum(g.fitness for g in valid_genomesB) / len(valid_genomesB)
                 best_fitness_B.append(bestB.fitness)
@@ -672,6 +750,12 @@ if __name__ == "__main__":
         help="If specified, that side will perform NOOP each step",
     )
     parser.add_argument(
+        "--unblank_gen",
+        type=int,
+        default=None,
+        help="Generation at which to stop blanking the specified side; after this gen both act normally",
+    )
+    parser.add_argument(
         "--penalty_reward",
         type=float,
         default=None,
@@ -732,19 +816,19 @@ if __name__ == "__main__":
     # Parameter Grid Search
     # -------------------
     grid = {
-        'pop_size': [10, 20, 40],
+        'pop_size': [20],
         'mutation_rate': [0.9],
-        'penalty_reward': [None, 0],
-        'hit_reward': [None, 1],
+        'penalty_reward': [0.0],
+        'hit_reward': [None],
     }
 
     # Run grid search
     for pop, mut, pen, hit in itertools.product(
-            grid['pop_size'],
-            grid['mutation_rate'],
-            grid['penalty_reward'],
-            grid['hit_reward']
-        ):
+        grid['pop_size'],
+        grid['mutation_rate'],
+        grid['penalty_reward'],
+        grid['hit_reward']
+    ):
         run_dir = os.path.join(args.results,
                                f"pop{pop}_mut{mut}_pen{pen}_hit{hit}")
         os.makedirs(run_dir, exist_ok=True)
@@ -757,6 +841,7 @@ if __name__ == "__main__":
                 generations=args.generations,
                 mutation_rate=mut,
                 blank_side=args.blank_side,
+                unblank_gen=args.unblank_gen,
                 penalty_reward=pen,
                 hit_reward=hit,
                 img_size=tuple(args.img_size),

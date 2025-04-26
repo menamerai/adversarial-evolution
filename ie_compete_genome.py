@@ -6,6 +6,31 @@ import numpy as np
 import csv
 from main import simulate_match_net
 from loguru import logger
+import multiprocessing
+from multiprocessing import cpu_count
+
+
+def _eval_round(task):
+    # Unpack task parameters
+    idx, config_path, genome_a_path, genome_b_path, img_size, penalty_reward, hit_reward = task
+    # Load config and genomes
+    config = neat.Config(
+        neat.DefaultGenome,
+        neat.DefaultReproduction,
+        neat.DefaultSpeciesSet,
+        neat.DefaultStagnation,
+        config_path,
+    )
+    genomeA = load_genome(genome_a_path)
+    genomeB = load_genome(genome_b_path)
+    # Create networks and run simulation
+    netA = neat.nn.FeedForwardNetwork.create(genomeA, config)
+    netB = neat.nn.FeedForwardNetwork.create(genomeB, config)
+    scoreA, scoreB = simulate_match_net(
+        netA, netB, blank_side=None, img_size=img_size,
+        penalty_reward=penalty_reward, hit_reward=hit_reward
+    )
+    return idx, scoreA, scoreB
 
 
 def load_genome(path: str):
@@ -25,28 +50,17 @@ def main():
     parser.add_argument('--out_csv', type=str, default='results/compare_results.csv', help='Output CSV path')
     args = parser.parse_args()
 
-    # load config and networks
-    config = neat.Config(
-        neat.DefaultGenome,
-        neat.DefaultReproduction,
-        neat.DefaultSpeciesSet,
-        neat.DefaultStagnation,
-        args.config,
-    )
-    genomeA = load_genome(args.genome_a)
-    genomeB = load_genome(args.genome_b)
-    netA = neat.nn.FeedForwardNetwork.create(genomeA, config)
-    netB = neat.nn.FeedForwardNetwork.create(genomeB, config)
     img_size = tuple(args.img_size)
 
-    # run multiple matches
-    results = []
-    for i in range(1, args.rounds + 1):
-        scoreA, scoreB = simulate_match_net(
-            netA, netB, blank_side=None, img_size=img_size,
-            penalty_reward=args.penalty_reward, hit_reward=args.hit_reward
-        )
-        results.append((i, scoreA, scoreB))
+    # Prepare tasks for parallel processing
+    tasks = [(i, args.config, args.genome_a, args.genome_b, img_size, args.penalty_reward, args.hit_reward) for i in range(1, args.rounds + 1)]
+
+    # Create a pool of workers and run the tasks
+    with multiprocessing.Pool(processes=cpu_count()) as pool:
+        results = pool.map(_eval_round, tasks)
+
+    # Log results
+    for i, scoreA, scoreB in results:
         logger.info(f"Round {i}: A={scoreA:.2f}, B={scoreB:.2f}")
 
     # save CSV
